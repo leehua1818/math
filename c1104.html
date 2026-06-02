@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>高等数学：对面积的曲面积分 - 几何意义可视化</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.75);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            border-left: 4px solid #ff8c00;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            max-width: 320px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        #info h1 {
+            margin: 0 0 5px;
+            font-size: 1.2rem;
+        }
+        #info p {
+            margin: 5px 0;
+        }
+        #info .formula {
+            font-family: monospace;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 4px 0;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(30,30,40,0.9);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            padding: 10px 20px;
+            display: flex;
+            gap: 15px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: monospace;
+        }
+        button {
+            background: #ff8c00;
+            border: none;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 28px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, background 0.2s;
+            font-family: inherit;
+        }
+        button:hover {
+            background: #ffaa33;
+            transform: scale(1.02);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 12px;
+            border-radius: 40px;
+        }
+        .progress-text {
+            font-weight: bold;
+            color: #ffaa66;
+        }
+        #integralValue {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffaa66;
+        }
+        .note {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #ccc;
+            pointer-events: none;
+            z-index: 100;
+            font-family: monospace;
+        }
+        @media (max-width: 600px) {
+            #info { font-size: 10px; max-width: 260px; top: 10px; left: 10px; }
+            .progress-container { font-size: 10px; }
+            button { padding: 4px 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>📐 对面积的曲面积分 (第一类曲面积分)</h1>
+        <p>几何意义：将曲面 Σ 划分为无数微小面元 dS，每个面元上函数值 f(x,y,z) 视为"密度"或"权重"，<br>
+        <strong>∬<sub>Σ</sub> f(x,y,z) dS</strong> 就是所有"权重 × 面积"的累积总和。</p>
+        <p>🎨 <strong>当前可视化</strong>：曲面颜色表示函数 f(x,y,z) = <span style="color:#ffaa66;">z + 0.5</span> (红色高值→蓝色低值)<br>
+        🔍 <strong>动态积分</strong>：逐渐累加每个微小三角形面片的 <span style="color:#ffaa66;">f·ΔS</span>，逼近曲面积分值。<br>
+        📌 <strong>若 f=1</strong>，积分结果等于曲面的表面积 (本曲面面积 ≈ 8.63)。</p>
+        <p>📖 <strong>积分过程 = 分割 → 近似 → 求和 → 极限</strong>，动画模拟了逐步添加面片贡献的过程。</p>
+    </div>
+    <div id="controls">
+        <button id="startBtn">▶ 开始积分动画</button>
+        <button id="resetBtn">🔄 重置</button>
+        <div class="progress-container">
+            <span>📊 积分累计:</span>
+            <span id="integralValue">0.0000</span>
+            <span>/ 总积分 ≈ <span id="totalIntegral">---</span></span>
+        </div>
+        <div class="progress-text" id="progressPercent">(0%)</div>
+    </div>
+    <div class="note">
+        🖱️ 鼠标拖拽旋转视角 | 右键平移 | 滚动缩放 | 动态展示曲面积分的"求和"本质
+    </div>
+
+    <!-- 引入Three.js核心库及扩展 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景、相机、渲染器 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a); // 深邃星空蓝黑
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008); // 轻微雾效增强层次
+
+        // 透视相机 (视角,宽高比,近平面,远平面)
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 4, 6);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // 开启阴影映射
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // CSS2渲染文字
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- 控制器 (支持交互) ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;      // 惯性
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
+        controls.enableZoom = true;
+        controls.enablePan = true;
+        
+        // --- 辅助元素: 灯光、网格、坐标轴 (增强视觉效果) ---
+        // 环境光
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        // 主光源方向光
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(2, 5, 3);
+        dirLight.castShadow = true;
+        dirLight.receiveShadow = false;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+        // 补光 背光暖色
+        const backLight = new THREE.PointLight(0xcc9966, 0.4);
+        backLight.position.set(-2, 1, -3);
+        scene.add(backLight);
+        // 冷色侧补光
+        const fillLight = new THREE.PointLight(0x6688aa, 0.3);
+        fillLight.position.set(1, 2, 2);
+        scene.add(fillLight);
+        
+        // 辅助网格地面 (半透明，体现空间感)
+        const gridHelper = new THREE.GridHelper(12, 20, 0x88aaff, 0x335588);
+        gridHelper.position.y = -1.2;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.35;
+        scene.add(gridHelper);
+        
+        // 简易坐标轴 (红色X, 绿色Z, 蓝色Y)
+        const axesHelper = new THREE.AxesHelper(3.5);
+        axesHelper.material.transparent = true;
+        axesHelper.material.opacity = 0.2;
+        scene.add(axesHelper);
+        
+        // 星空粒子背景 (简单装饰)
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 800;
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3] = (Math.random() - 0.5) * 200;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 100;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 80 - 40;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6 });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+        
+        // --- 核心: 定义曲面参数方程 (区域 x∈[-2.2,2.2], y∈[-2.2,2.2]) ---
+        // 曲面函数: z = 0.8 * ( sin(x) * cos(y) + 0.5 * sin(1.5*x) * cos(1.2*y) )，美观且起伏自然
+        // 定义域范围
+        const X_MIN = -2.2, X_MAX = 2.2;
+        const Y_MIN = -2.2, Y_MAX = 2.2;
+        const SEGMENTS = 80;  // 网格细分数量 (80x80 -> 12800个三角面，美观且性能尚可)
+        
+        // 定义函数 f(x,y,z) = z + 0.6 (使得值域在 0.2~1.8 左右，颜色区分明显)
+        // 同时也作为积分的密度/权重函数
+        const getZ = (x, y) => {
+            // 使用平滑的波形，既美观又展示曲面积分概念
+            return 0.8 * (Math.sin(x) * Math.cos(y) + 0.4 * Math.sin(1.6*x) * Math.cos(1.3*y));
+        };
+        const getF = (x, y, z) => {
+            // 被积函数 f(x,y,z) = z + 0.7，保证为正，体现"加权面积"
+            // 这样高处贡献更大，低处贡献小，颜色映射也是此函数
+            return z + 0.7;
+        };
+        
+        // 生成几何体顶点、索引、并存储每个三角形面片的面积、中心、f值，用于积分累加动画
+        const vertices = [];
+        const indices = [];
+        // 存储每个顶点的f值(用于顶点颜色)
+        const vertexFValues = [];
+        
+        // 生成网格点坐标 (行优先)
+        const stepX = (X_MAX - X_MIN) / SEGMENTS;
+        const stepY = (Y_MAX - Y_MIN) / SEGMENTS;
+        
+        for (let i = 0; i <= SEGMENTS; i++) {
+            const x = X_MIN + i * stepX;
+            for (let j = 0; j <= SEGMENTS; j++) {
+                const y = Y_MIN + j * stepY;
+                const z = getZ(x, y);
+                vertices.push(x, y, z);
+                // 计算该顶点处的 f 值 (用于颜色插值)
+                const fval = getF(x, y, z);
+                vertexFValues.push(fval);
+            }
+        }
+        
+        // 构建索引 (两个三角形形成一个矩形网格单元)
+        for (let i = 0; i < SEGMENTS; i++) {
+            for (let j = 0; j < SEGMENTS; j++) {
+                const a = i * (SEGMENTS + 1) + j;
+                const b = i * (SEGMENTS + 1) + j + 1;
+                const c = (i + 1) * (SEGMENTS + 1) + j;
+                const d = (i + 1) * (SEGMENTS + 1) + j + 1;
+                
+                // 三角形1: a - b - c
+                indices.push(a, b, c);
+                // 三角形2: b - d - c
+                indices.push(b, d, c);
+            }
+        }
+        
+        // 创建几何体
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+        geometry.setIndex(indices);
+        
+        // 计算每个面的面积和面中心以及f值，为积分动画做准备
+        const positionsAttr = geometry.attributes.position.array;
+        const indexArray = geometry.index.array;
+        const triangleCount = indices.length / 3;
+        
+        // 存储每个三角形的数据：{ area, fValueAtCenter, center, indicesIndexStart }
+        const trianglesData = [];
+        
+        for (let tri = 0; tri < triangleCount; tri++) {
+            const i0 = indexArray[tri*3];
+            const i1 = indexArray[tri*3+1];
+            const i2 = indexArray[tri*3+2];
+            
+            const x0 = positionsAttr[i0*3], y0 = positionsAttr[i0*3+1], z0 = positionsAttr[i0*3+2];
+            const x1 = positionsAttr[i1*3], y1 = positionsAttr[i1*3+1], z1 = positionsAttr[i1*3+2];
+            const x2 = positionsAttr[i2*3], y2 = positionsAttr[i2*3+1], z2 = positionsAttr[i2*3+2];
+            
+            // 向量AB, AC
+            const AB = new THREE.Vector3(x1-x0, y1-y0, z1-z0);
+            const AC = new THREE.Vector3(x2-x0, y2-y0, z2-z0);
+            const cross = new THREE.Vector3();
+            cross.crossVectors(AB, AC);
+            const area = cross.length() / 2.0;
+            
+            // 中心坐标
+            const centerX = (x0 + x1 + x2) / 3;
+            const centerY = (y0 + y1 + y2) / 3;
+            const centerZ = (z0 + z1 + z2) / 3;
+            const fVal = getF(centerX, centerY, centerZ);
+            
+            trianglesData.push({
+                area: area,
+                fVal: fVal,
+                contribution: area * fVal,
+                center: new THREE.Vector3(centerX, centerY, centerZ),
+                indices: [i0, i1, i2]
+            });
+        }
+        
+        // 计算曲面积分总值 (所有三角形贡献之和)
+        let totalIntegralValue = 0;
+        trianglesData.forEach(t => { totalIntegralValue += t.contribution; });
+        document.getElementById('totalIntegral').innerText = totalIntegralValue.toFixed(4);
+        
+        // --- 创建曲面材质及Mesh: 使用顶点颜色来展示函数f(x,y,z)的分布 (红高蓝低) ---
+        // 为每个顶点计算颜色 (根据f值)
+        const colorArray = new Float32Array(vertices.length / 3 * 3);
+        // 先获取f值范围，用于映射颜色
+        let minF = Infinity, maxF = -Infinity;
+        for (let i = 0; i < vertexFValues.length; i++) {
+            const val = vertexFValues[i];
+            if (val < minF) minF = val;
+            if (val > maxF) maxF = val;
+        }
+        // 避免范围0
+        if (maxF - minF < 0.01) { maxF = minF + 1; }
+        
+        for (let i = 0; i < vertexFValues.length; i++) {
+            const t = (vertexFValues[i] - minF) / (maxF - minF); // 0~1
+            // 颜色: 低值 -> 蓝青色, 高值 -> 橙红色
+            const r = 0.3 + t * 0.7;
+            const g = 0.2 + t * 0.5;
+            const b = 0.7 - t * 0.5;
+            colorArray[i*3] = r;
+            colorArray[i*3+1] = g;
+            colorArray[i*3+2] = b;
+        }
+        geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+        
+        const surfaceMaterial = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            roughness: 0.4,
+            metalness: 0.2,
+            emissive: 0x000000,
+            flatShading: false,
+            transparent: true,
+            opacity: 0.92
+        });
+        
+        const surfaceMesh = new THREE.Mesh(geometry, surfaceMaterial);
+        surfaceMesh.castShadow = true;
+        surfaceMesh.receiveShadow = false;
+        scene.add(surfaceMesh);
+        
+        // 添加边缘线框，增强立体感和分割感 (wireframe)
+        const wireframeMaterial = new THREE.MeshBasicMaterial({ color: 0x88aaff, wireframe: true, transparent: true, opacity: 0.18 });
+        const wireframeMesh = new THREE.Mesh(geometry, wireframeMaterial);
+        scene.add(wireframeMesh);
+        
+        // 添加一些浮动的粒子，围绕曲面周围，增加动感 (装饰)
+        const particleCount = 1200;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount; i++) {
+            // 随机位置在曲面周围区域
+            const x = (Math.random() - 0.5) * 5.5;
+            const y = (Math.random() - 0.5) * 5;
+            const z = (Math.random() - 0.5) * 3 + 0.5;
+            particlePositions[i*3] = x;
+            particlePositions[i*3+1] = y;
+            particlePositions[i*3+2] = z;
+        }
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        const particleMat = new THREE.PointsMaterial({ color: 0x77aaff, size: 0.03, transparent: true, opacity: 0.5 });
+        const particles = new THREE.Points(particleGeometry, particleMat);
+        scene.add(particles);
+        
+        // --- 积分动画逻辑: 依次累加三角形面片贡献，高亮已积分的区域 (通过额外半透明Mesh?) ---
+        // 简单实现: 动态改变曲面Mesh的颜色? 为了视觉，增加一个高亮层比较麻烦，改用进度数值显示和辅助粒子的飞溅效果即可。
+        // 为更直观，在积分过程中，随机在贡献较大的三角形中心产生微小光晕，并逐渐增加积分值。
+        
+        let accumulatedIndex = 0;          // 已累加的三角形个数
+        let currentIntegral = 0;           // 当前累加和
+        let animating = false;
+        let animationFrameId = null;
+        let lastTimestamp = 0;
+        const STEP_PER_FRAME = 12;          // 每帧累加12个三角形，平滑动画
+        
+        const integralSpan = document.getElementById('integralValue');
+        const progressSpan = document.getElementById('progressPercent');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        // 存储临时高亮点对象 (小球体)
+        const highLightGroup = new THREE.Group();
+        scene.add(highLightGroup);
+        
+        // 清除高亮点
+        function clearHighlights() {
+            while(highLightGroup.children.length) {
+                highLightGroup.remove(highLightGroup.children[0]);
+            }
+        }
+        
+        // 积分重置
+        function resetIntegral() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            animating = false;
+            accumulatedIndex = 0;
+            currentIntegral = 0;
+            integralSpan.innerText = currentIntegral.toFixed(6);
+            progressSpan.innerText = '(0%)';
+            clearHighlights();
+            // 恢复曲面材质透明度，移除可能添加的特效
+            surfaceMaterial.opacity = 0.92;
+            // 重新加一点闪闪效果重置
+        }
+        
+        // 累加积分直到全部 (逐步动画)
+        function animateIntegration() {
+            if (!animating) return;
+            // 每次增加固定数量三角形
+            let stepsThisFrame = STEP_PER_FRAME;
+            let changed = false;
+            while (stepsThisFrame > 0 && accumulatedIndex < trianglesData.length) {
+                const tri = trianglesData[accumulatedIndex];
+                currentIntegral += tri.contribution;
+                accumulatedIndex++;
+                stepsThisFrame--;
+                changed = true;
+                
+                // 每加一个三角形，可添加一个小光点在高亮组里 (限制总数避免过多性能问题)
+                if (accumulatedIndex % 8 === 0) {
+                    const sphereGeo = new THREE.SphereGeometry(0.035, 6, 6);
+                    const colorVal = tri.fVal;
+                    const tColor = (colorVal - minF) / (maxF - minF);
+                    const sphereMat = new THREE.MeshStandardMaterial({
+                        color: new THREE.Color().setHSL(0.08 + tColor * 0.2, 1.0, 0.6),
+                        emissive: new THREE.Color().setHSL(0.1, 0.8, 0.2),
+                        emissiveIntensity: 0.8
+                    });
+                    const marker = new THREE.Mesh(sphereGeo, sphereMat);
+                    marker.position.copy(tri.center);
+                    highLightGroup.add(marker);
+                    // 设置3秒后自动消失 (避免堆积)
+                    setTimeout(() => {
+                        if (marker.parent) marker.parent.remove(marker);
+                    }, 800);
+                }
+            }
+            
+            if (changed) {
+                integralSpan.innerText = currentIntegral.toFixed(6);
+                const percent = (accumulatedIndex / trianglesData.length) * 100;
+                progressSpan.innerText = `(${percent.toFixed(1)}%)`;
+                if (accumulatedIndex >= trianglesData.length) {
+                    progressSpan.innerText = `(100% 完成)`;
+                    integralSpan.innerText = totalIntegralValue.toFixed(6);
+                    animating = false;
+                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                    // 完成特效: 闪光
+                    surfaceMaterial.emissiveIntensity = 0.2;
+                    setTimeout(() => { surfaceMaterial.emissiveIntensity = 0; }, 500);
+                }
+            }
+            
+            if (animating && accumulatedIndex < trianglesData.length) {
+                animationFrameId = requestAnimationFrame(animateIntegration);
+            } else {
+                if (animationFrameId && accumulatedIndex >= trianglesData.length) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+            }
+        }
+        
+        function startAnimation() {
+            if (animating) return;
+            if (accumulatedIndex >= trianglesData.length) {
+                resetIntegral();
+            }
+            animating = true;
+            // 清理旧高亮
+            clearHighlights();
+            animateIntegration();
+        }
+        
+        startBtn.addEventListener('click', startAnimation);
+        resetBtn.addEventListener('click', () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            animating = false;
+            accumulatedIndex = 0;
+            currentIntegral = 0;
+            integralSpan.innerText = currentIntegral.toFixed(6);
+            progressSpan.innerText = '(0%)';
+            clearHighlights();
+            surfaceMaterial.emissiveIntensity = 0;
+        });
+        
+        // --- 添加一个浮动文字标签 CSS2D 显示积分公式的几何解释 ---
+        const labelDiv = document.createElement('div');
+        labelDiv.textContent = '∬ f(x,y,z) dS = Σ f·ΔS_i  →  ∑ (密度×面积)';
+        labelDiv.style.backgroundColor = 'rgba(0,0,0,0.6)';
+        labelDiv.style.color = '#ffcc88';
+        labelDiv.style.fontSize = '14px';
+        labelDiv.style.padding = '6px 12px';
+        labelDiv.style.borderRadius = '24px';
+        labelDiv.style.borderLeft = '3px solid #ff8c00';
+        labelDiv.style.fontFamily = 'monospace';
+        labelDiv.style.backdropFilter = 'blur(4px)';
+        labelDiv.style.pointerEvents = 'none';
+        const labelObj = new CSS2DObject(labelDiv);
+        labelObj.position.set(2.5, 1.8, 1.2);
+        scene.add(labelObj);
+        
+        // 增加一个动态圆弧旋转光晕，增加科技感 (环绕曲面)
+        const ringPoints = [];
+        const ringRadius = 3.2;
+        const ringGeo = new THREE.BufferGeometry();
+        for (let ang = 0; ang <= 360; ang += 5) {
+            const rad = ang * Math.PI / 180;
+            const x = Math.cos(rad) * ringRadius;
+            const z = Math.sin(rad) * ringRadius;
+            ringPoints.push(x, 0.2, z);
+        }
+        ringGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ringPoints), 3));
+        const ringMat = new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.35 });
+        const ringLoop = new THREE.LineLoop(ringGeo, ringMat);
+        scene.add(ringLoop);
+        
+        // 简单的旋转动画 (光环旋转)
+        let time = 0;
+        
+        // --- 简单辅助文字: 展示面积微元概念 动态小球 ---
+        // 在积分动画过程中, 上面已经添加了瞬时小球, 这里再加周期性微元示意: 每隔一段时间随机位置释放光点.
+        let intervalHint;
+        function startHintParticles() {
+            if (intervalHint) clearInterval(intervalHint);
+            intervalHint = setInterval(() => {
+                if (!animating && accumulatedIndex === 0) return;
+                // 随机选一个未积分或已积分的三角形，显示白色闪烁 (示意dS)
+                const idx = Math.floor(Math.random() * trianglesData.length);
+                const tri = trianglesData[idx];
+                const sphereGeo = new THREE.SphereGeometry(0.045, 8, 8);
+                const matHint = new THREE.MeshStandardMaterial({ color: 0xffaa66, emissive: 0xff4411, emissiveIntensity: 0.5 });
+                const hintSphere = new THREE.Mesh(sphereGeo, matHint);
+                hintSphere.position.copy(tri.center);
+                scene.add(hintSphere);
+                setTimeout(() => scene.remove(hintSphere), 400);
+            }, 900);
+        }
+        startHintParticles();
+        
+        // --- 动画循环: 旋转光环, 粒子缓慢飘移 ---
+        function mainRenderLoop() {
+            requestAnimationFrame(mainRenderLoop);
+            time += 0.008;
+            // 光环旋转
+            ringLoop.rotation.y = time * 0.5;
+            // 粒子缓慢旋转移动，营造生动感
+            particles.rotation.y = time * 0.05;
+            stars.rotation.x = time * 0.01;
+            stars.rotation.y = time * 0.02;
+            
+            // 更新控制器
+            controls.update();
+            
+            // 渲染
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        
+        mainRenderLoop();
+        
+        // 窗口适配
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // 控制台输出提示
+        console.log('初始化完成，曲面三角形数量:', triangleCount, '总积分值(近似):', totalIntegralValue);
+        
+        // 增加一小段说明动画: 自动提示可以开始
+        setTimeout(() => {
+            const tip = document.createElement('div');
+            tip.textContent = '✨ 点击"开始积分动画"，逐个累加曲面微元 ✨';
+            tip.style.position = 'absolute';
+            tip.style.bottom = '80px';
+            tip.style.left = '50%';
+            tip.style.transform = 'translateX(-50%)';
+            tip.style.backgroundColor = '#ff8c00cc';
+            tip.style.color = 'white';
+            tip.style.padding = '6px 16px';
+            tip.style.borderRadius = '40px';
+            tip.style.fontSize = '14px';
+            tip.style.zIndex = '200';
+            tip.style.pointerEvents = 'none';
+            tip.style.fontWeight = 'bold';
+            document.body.appendChild(tip);
+            setTimeout(() => tip.remove(), 4000);
+        }, 1000);
+    </script>
+</body>
+</html>
