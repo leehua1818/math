@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PLU分解 — 例6详解</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#fafaf9;color:#292524;line-height:1.7;max-width:920px;margin:0 auto;padding:2rem 1.5rem}
+h1{font-size:20px;font-weight:600;margin-bottom:.5rem;color:#1c1917}
+p{margin-bottom:.75rem;font-size:14px}
+.mx{display:inline-block;position:relative;background:#fff;border-radius:8px;padding:4px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.mx-b{position:absolute;top:4px;bottom:4px;width:6px;border-left:2px solid #292524;border-top:2px solid #292524;border-bottom:2px solid #292524;border-radius:3px 0 0 3px}
+.mx-br{right:4px;border:none;border-right:2px solid #292524;border-top:2px solid #292524;border-bottom:2px solid #292524;border-radius:0 3px 3px 0}
+.mx-in{padding:8px 14px}
+.mx-row{display:flex;gap:16px}
+.mx-cell{width:40px;text-align:center;font-family:'Times New Roman',serif;font-size:15px;padding:6px 0;border-radius:4px;transition:background .3s}
+.hp{background:#fed7aa;color:#7c2d12;font-weight:600}
+.hc{background:#bfdbfe;color:#1e3a8a}
+.hm{background:#ddd6fe;color:#5b21b6}
+.hr{background:#fef3c7;color:#92400e}
+.st{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:1.25rem;margin:1rem 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.st-t{font-size:14px;font-weight:500;color:#44403c;margin-bottom:.75rem;display:flex;align-items:center;gap:8px}
+.bd{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:500}
+.bp{background:#fed7aa;color:#7c2d12}
+.bs{background:#fecaca;color:#991b1b}
+.be{background:#ddd6fe;color:#5b21b6}
+.br{background:#bbf7d0;color:#166534}
+.ctrl{display:flex;gap:8px;margin:1rem 0;flex-wrap:wrap}
+.btn{padding:8px 16px;border:1px solid #d6d3d1;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:#57534e;transition:.2s}
+.btn:hover{background:#f5f5f4}
+.btn.on{background:#292524;color:#fff;border-color:#292524}
+.rl{font-size:12px;color:#78716c;width:18px;text-align:right;flex-shrink:0;margin-right:6px}
+.lg{display:flex;gap:16px;margin:12px 0;font-size:12px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:6px}
+.lb{width:16px;height:16px;border-radius:4px;flex-shrink:0}
+.vf{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:12px 16px;margin-top:1rem;font-size:14px;color:#065f46}
+.nt{background:#fffbeb;border-left:3px solid #f59e0b;padding:12px 16px;margin:1rem 0;font-size:13px;color:#78350f;border-radius:0 8px 8px 0}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:1rem 0}
+.frac{display:inline-flex;flex-direction:column;align-items:center;font-size:14px;line-height:1.15}
+.fn{border-bottom:1px solid currentColor;padding:0 3px}
+.fd{padding:0 3px}
+</style>
+</head>
+<body>
+
+<h1>例6 矩阵的 PLU 分解（列选主元）</h1>
+<p style="color:#78716c;font-size:13px;">A = [0,0,1,2; 0,0,3,0; 1,-1,0,1; 2,0,-1,3]</p>
+
+<div class="lg">
+  <div class="li"><div class="lb" style="background:#fed7aa"></div> 主元（对角线非零）</div>
+  <div class="li"><div class="lb" style="background:#bfdbfe"></div> 候选行</div>
+  <div class="li"><div class="lb" style="background:#fef3c7"></div> 交换行</div>
+  <div class="li"><div class="lb" style="background:#ddd6fe"></div> 乘数 m<sub>ik</sub></div>
+</div>
+
+<div class="ctrl" id="ctrl"></div>
+<div id="main"></div>
+
+<script>
+const A0=[[0,0,1,2],[0,0,3,0],[1,-1,0,1],[2,0,-1,3]];
+function cp(M){return M.map(r=>[...r])}
+function fm(n){n=Math.round(n*1e12)/1e12;if(Number.isInteger(n))return String(n);const a=Math.abs(n);if(Math.abs(a-0.5)<1e-9)return'<span class="frac"><span class="fn">'+(n<0?'-1':'1')+'</span><span class="fd">2</span></span>';if(Math.abs(a-1/3)<1e-9)return'<span class="frac"><span class="fn">'+(n<0?'-1':'1')+'</span><span class="fd">3</span></span>';return n.toFixed(2)}
+function fp(n){n=Math.round(n*1e12)/1e12;if(Number.isInteger(n))return String(n);const a=Math.abs(n);if(Math.abs(a-0.5)<1e-9)return n<0?'-1/2':'1/2';if(Math.abs(a-1/3)<1e-9)return n<0?'-1/3':'1/3';return n.toFixed(2)}
+
+function mx(M,hl,lb){const h={};if(hl)for(const x of hl)h[x.r+','+x.c]=x.c;let s='<div class="mx"><div class="mx-b"></div><div class="mx-in">';for(let i=0;i<M.length;i++){s+='<div style="display:flex;align-items:center;">';if(lb)s+=`<div class="rl">${lb[i]}</div>`;s+='<div class="mx-row">';for(let j=0;j<M[i].length;j++)s+=`<div class="mx-cell ${h[i+','+j]||''}">${fp(M[i][j])}</div>`;s+='</div></div>'}s+='</div><div class="mx-b mx-br"></div></div>';return s}
+
+function mL(L){let s='<div class="mx"><div class="mx-b"></div><div class="mx-in">';for(let i=0;i<L.length;i++){s+='<div class="mx-row">';for(let j=0;j<L[i].length;j++){let c='';if(i>j&&Math.abs(L[i][j])>1e-10)c='hm';s+=`<div class="mx-cell ${c}">${fp(L[i][j])}</div>`}s+='</div>'}s+='</div><div class="mx-b mx-br"></div></div>';return s}
+
+const S=[];
+
+// Step 0
+S.push({t:'初始矩阵 A',b:'bp',d:'对以下矩阵进行列选主元的消元计算（即只要 a<sub>ii</sub><sup>(k-1)</sup>≠0 即可）。',M:cp(A0),hl:[],lb:['[1]','[2]','[3]','[4]'],nt:'行序 [1, 2, 3, 4]'});
+
+// Step 1: k=1 find first non-zero in col 0
+// [0,0,1,2] -> a31=1 is first non-zero
+S.push({t:'k=1 选主元',b:'bp',d:'第1列: a<sub>11</sub>=0, a<sub>21</sub>=0, <b>a<sub>31</sub>=1</b>（首非零）, a<sub>41</sub>=2。主元取 a<sub>31</sub>=1，交换 r<sub>1</sub>↔r<sub>3</sub>。',M:cp(A0),hl:[{r:2,c:0,c:'hp'},{r:3,c:0,c:'hc'}],lb:['[1]','[2]','[3]','[4]'],nt:''});
+
+// Step 2: swap r1<->r3
+const A1=cp(A0);[A1[0],A1[2]]=[A1[2],A1[0]];
+S.push({t:'k=1 行交换 r₁↔r₃',b:'bs',d:'交换第1行与第3行，使主元位于 (1,1)。',M:cp(A1),hl:[{r:0,c:0,c:'hp'},{r:2,c:0,c:'hr'}],lb:['[3]','[2]','[1]','[4]'],nt:'行序 [3, 2, 1, 4]'});
+
+// Step 3: k=1 elimination
+const A2=cp(A1);
+const m21_1=A2[1][0]/A2[0][0]; // 0
+const m31_1=A2[2][0]/A2[0][0]; // 0
+const m41_1=A2[3][0]/A2[0][0]; // 2
+for(let j=0;j<4;j++){A2[1][j]-=m21_1*A2[0][j];A2[2][j]-=m31_1*A2[0][j];A2[3][j]-=m41_1*A2[0][j];}
+S.push({t:'k=1 消元',b:'be',d:`乘数: m<sub>21</sub>=0/1=0, m<sub>31</sub>=0/1=0, m<sub>41</sub>=2/1=2。用第1行消去下方元素，记录乘数以备后续构造 L。`,M:cp(A2),hl:[{r:1,c:0,c:'hm'},{r:2,c:0,c:'hm'},{r:3,c:0,c:'hm'}],lb:['[3]','[2]','[1]','[4]'],nt:''});
+
+// Step 4: k=2 find first non-zero in col 1 rows 1..3
+// After k=1: row1=0, row2=0, row3=2 -> first non-zero at row 3 (val 2), swap r2<->r4
+S.push({t:'k=2 选主元',b:'bp',d:'第2列（从第2行起）: a<sub>22</sub>=0, a<sub>32</sub>=0, <b>a<sub>42</sub>=2</b>（首非零）。主元取 a<sub>42</sub>=2，交换 r<sub>2</sub>↔r<sub>4</sub>。',M:cp(A2),hl:[{r:3,c:1,c:'hp'}],lb:['[3]','[2]','[1]','[4]'],nt:'注意：L 中对应行乘数也随之交换！'});
+
+// Step 5: swap r2<->r4
+const A3=cp(A2);[A3[1],A3[3]]=[A3[3],A3[1]];
+S.push({t:'k=2 行交换 r₂↔r₄',b:'bs',d:'交换第2行与第4行。L 矩阵中第2行与第4行的乘数也随之交换：原来的 m<sub>41</sub>=2 和 m<sub>21</sub>=0 互换，故新的 m<sub>21</sub>=2。',M:cp(A3),hl:[{r:1,c:1,c:'hp'},{r:3,c:1,c:'hr'}],lb:['[3]','[4]','[1]','[2]'],nt:'行序 [3, 4, 1, 2]；m<sub>21</sub>↔m<sub>41</sub>'});
+
+// Step 6: k=2 elimination
+const A4=cp(A3);
+const m32_2=A4[2][1]/A4[1][1]; // 0
+const m42_2=A4[3][1]/A4[1][1]; // 0
+for(let j=1;j<4;j++){A4[2][j]-=m32_2*A4[1][j];A4[3][j]-=m42_2*A4[1][j];}
+S.push({t:'k=2 消元',b:'be',d:`乘数: m<sub>32</sub>=${fp(m32_2)}=0, m<sub>42</sub>=${fp(m42_2)}=0。下方均0，无需实质消元。`,M:cp(A4),hl:[],lb:['[3]','[4]','[1]','[2]'],nt:''});
+
+// Step 7: k=3 find first non-zero in col 2 rows 2..3
+// row2=1, row3=3 -> first non-zero at row 2 (val 1), no swap
+S.push({t:'k=3 选主元',b:'bp',d:'第3列（从第3行起）: <b>a<sub>33</sub>=1</b>（首非零）, a<sub>43</sub>=3。主元取 a<sub>33</sub>=1，无需换行。',M:cp(A4),hl:[{r:2,c:2,c:'hp'},{r:3,c:2,c:'hc'}],lb:['[3]','[4]','[1]','[2]'],nt:''});
+
+// Step 8: k=3 elimination
+const A5=cp(A4);
+const m43_3=A5[3][2]/A5[2][2]; // 3
+for(let j=2;j<4;j++)A5[3][j]-=m43_3*A5[2][j];
+S.push({t:'k=3 消元',b:'be',d:`乘数: m<sub>43</sub>=3/1=3。消去 a<sub>43</sub>: [0,0,3,0]−3·[0,0,1,2]=[0,0,0,−6]。得 U，对角: 1, 2, 1, −6。`,M:cp(A5),hl:[{r:3,c:2,c:'hm'},{r:3,c:3,c:'hp'}],lb:['[3]','[4]','[1]','[2]'],nt:'U 完成'});
+
+// Step 9: Final result
+const Pf=[[0,0,1,0],[0,0,0,1],[1,0,0,0],[0,1,0,0]];
+const Lf=[[1,0,0,0],[2,1,0,0],[0,0,1,0],[0,0,3,1]];
+const Uf=cp(A5);
+
+// Verify
+let PA=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)PA[i][j]+=Pf[i][k]*A0[k][j];
+let LU=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)LU[i][j]+=Lf[i][k]*Uf[k][j];
+let ok=true;for(let i=0;i<4;i++)for(let j=0;j<4;j++)if(Math.abs(PA[i][j]-LU[i][j])>1e-9)ok=false;
+
+S.push({t:'最终结果',b:'br',d:'得到置换矩阵 P、单位下三角矩阵 L 和上三角矩阵 U。',fin:true,P:Pf,L:Lf,U:Uf});
+
+function rCtrl(){let h='';for(let i=0;i<S.length;i++)h+=`<button class="btn${i===0?' on':''}" onclick="sh(${i})">步骤 ${i}</button>`;document.getElementById('ctrl').innerHTML=h}
+function sh(i){document.querySelectorAll('.btn').forEach((b,j)=>b.classList.toggle('on',j===i));const s=S[i],c=document.getElementById('main');
+if(s.fin){c.innerHTML=`<div class="st"><div class="st-t"><span class="bd ${s.b}">结果</span>${s.t}</div><p>${s.d}</p><div class="g3"><div><p style="font-weight:500;margin-bottom:4px">P（置换矩阵）</p>${mx(s.P,[])}<p style="font-size:12px;color:#78716c;margin-top:8px">行顺序 [3, 4, 1, 2]</p></div><div><p style="font-weight:500;margin-bottom:4px">L（单位下三角）</p>${mL(s.L)}</div><div><p style="font-weight:500;margin-bottom:4px">U（上三角）</p>${mx(s.U,[])}</div></div><div class="vf"><strong>验证 PA = LU：</strong>${ok?'✓ 通过':'✗ 失败'}</div><div class="nt"><strong>关键：</strong>列选主元过程中，交换 A 的行时<b>L 的对应行乘数也要交换</b>。m₂₁↔m₄₁ 在 k=2 交换后完成，使得 L 中 l₂₁=2, l₃₁=0, l₄₃=3。</div></div>`}
+else{c.innerHTML=`<div class="st"><div class="st-t"><span class="bd ${s.b}">${s.b==='bp'?'选主元':s.b==='bs'?'交换':'消元'}</span>${s.t}</div><p>${s.d}</p><div style="margin:12px 0">${mx(s.M,s.hl,s.lb)}</div>${s.nt?`<div class="nt">${s.nt}</div>`:''}</div>`}}
+
+rCtrl();sh(0);
+</script>
+</body>
+</html>
