@@ -33,10 +33,11 @@ ragflow-eval/out/mineru/
 spikes/_cache/
 spikes/_tmp/
 
-# V0.4.0 OCR Spike：学生作业原图、人工标注题面文本与识别结果禁止进 Git（附录 A-14 / §25.2）
+# V0.4.0 OCR Spike：学生作业原图、人工标注题面、识别结果与评测报告禁止进 Git（附录 A-14 / §25.2）
 # 注意：eval/ocr_benchmark/README.md 是标注规范，可提交，不要改成忽略整个目录
 eval/ocr_benchmark/images/
 eval/ocr_benchmark/unlabeled/
 eval/ocr_benchmark/ground_truth.jsonl
 eval/ocr_predictions.jsonl
 eval/ocr_results.csv
+eval/report_ocr_spike.md
