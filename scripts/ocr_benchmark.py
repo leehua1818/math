@@ -969,8 +969,13 @@ SAMPLE_README = """# OCR Spike 样本集标注规范（PRD §20.4 阶段 0 / AC-
   低对比度、涂改、上下标密集、多行推导、多图同题等情况。
 - 拍摄/导出前请去掉姓名、学号、学校、面部等个人信息（PRD §25.2-7）。
 - 按 `group` 分 `clean`（清晰）与 `hard`（困难）两组，两组都要有样本。
-- ⚠️ `images/` 与 `eval/ocr_predictions.jsonl`（含识别出的题面文本）属学生数据，
-  已加入 `.gitignore`；**不要提交 Git、不要放进部署包**，按保留期清理（附录 A-14）。
+- ⚠️ 以下均属学生数据，已加入 `.gitignore`，**不要提交 Git、不要放进部署包**，
+  按保留期清理（附录 A-14 / §25.2）：
+  `eval/ocr_benchmark/images/`、`eval/ocr_benchmark/unlabeled/`、
+  `eval/ocr_benchmark/ground_truth.jsonl`（人工标注题面）、
+  `eval/ocr_predictions.jsonl`（识别出的题面文本）、`eval/ocr_results.csv`、
+  `eval/report_ocr_spike.md`（含题面片段的评测报告，每次 `run` 会覆盖）。
+  标注规范 `README.md` 与评测脚本 `scripts/ocr_benchmark.py` 不在此列，可提交。
 
 ## 2. `ground_truth.jsonl` 字段（每行一个 JSON 对象）
 
