@@ -1,0 +1,43 @@
+# 运行时数据
+data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+backend/data/
+logs/
+
+# 密钥
+.env
+backend/.env
+backend/.env.enc
+PASSPHRASE.txt
+portable/
+# 网页部署本地环境变量（含预设访问密码/真实密钥，不进 Git；*.example 仍可提交）
+deploy/*.env
+# 打包产物（含知识库快照，体积大，按需本地重新生成）
+deploy/*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# 语料与转写产物体积大，按需本地保留
+ragflow-eval/out/corpus/
+ragflow-eval/out/mineru/
+spikes/_cache/
+spikes/_tmp/
+
+# V0.4.0 OCR Spike：学生作业原图、人工标注题面、识别结果与评测报告禁止进 Git（附录 A-14 / §25.2）
+# 注意：eval/ocr_benchmark/README.md 是标注规范，可提交，不要改成忽略整个目录
+eval/ocr_benchmark/images/
+eval/ocr_benchmark/unlabeled/
+eval/ocr_benchmark/ground_truth.jsonl
+eval/ocr_predictions.jsonl
+eval/ocr_results.csv
+eval/report_ocr_spike.md
